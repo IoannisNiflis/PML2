@@ -1,0 +1,182 @@
+
+
+Practical Machine Learning Course Assignment Writeup
+
+Yiannis Niflis
+
+27 / 02 / 2016
+
+The training data for this project are available here: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+Import caret package and read the files and import them in your working directory, also replace all missing values with NA (in order to delete them later):
+library(caret)
+## Warning: package 'caret' was built under R version 3.2.3
+## Loading required package: lattice
+## Loading required package: ggplot2
+library(randomForest)
+## Warning: package 'randomForest' was built under R version 3.2.3
+## randomForest 4.6-12
+## Type rfNews() to see new features/changes/bug fixes.
+library(e1071)
+## Warning: package 'e1071' was built under R version 3.2.3
+library(rpart) # Regressive Partitioning and Regression trees
+## Warning: package 'rpart' was built under R version 3.2.3
+library(rpart.plot) # Decision Tree plot
+## Warning: package 'rpart.plot' was built under R version 3.2.3
+url1 <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+download.file(url1, destfile="pmltraining.csv")
+url2 <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(url2, destfile="pmltesting.csv")
+training_raw <- read.csv("pmltraining.csv", header=TRUE, na.strings=c("NA","#DIV/0!", ""))
+testing_raw <- read.csv("pmltesting.csv", header=TRUE, na.strings=c("NA","#DIV/0!", ""))
+
+I keep those variables which are related to sensors (e.g. belt, arm, dumbbell, forearm) and the classe variable as it holds the classification of the activity performed by the user.
+
+Also I discard the variables which have only null values and irrelevant variables with our project.
+sensor_col <- grepl("belt|arm|dumbbell|forearm|classe",names(training_raw))
+training_set <- training_raw[,sensor_col]
+null_col <- colSums(is.na(training_set))!=0
+training_set <- training_set[,!null_col]
+training_set   <-training_set[,-c(1:7)]
+
+Creating Scaterplots to check relationships between variables
+pairs(training_set[1:10000,1:10])
+
+
+
+Split of the original training set into two subsets (train 80% and testing 20%) and then use the Random Forest Method to boost Accuracy of the Model
+set.seed(1234)
+training_cv_index <- createDataPartition(training_set$classe,list=FALSE ,p=0.8)
+training_cv <- training_set[training_cv_index,]
+validation_cv <- training_set[-training_cv_index,]
+
+Creating a Prediction model using desicion trees
+model <- rpart(classe ~ ., data=training_cv, method="class")
+
+# Predicting:
+prediction1 <- predict(model, validation_cv, type = "class")
+
+# Plot of the Decision Tree
+rpart.plot(model, main="Classification Tree", extra=102, under=TRUE, faclen=0)
+
+
+
+see the results of the model
+model
+## n= 15699 
+## 
+## node), split, n, loss, yval, (yprob)
+##       * denotes terminal node
+## 
+##    1) root 15699 11235 A (0.28 0.19 0.17 0.16 0.18)  
+##      2) pitch_forearm< -33.95 1248     6 A (1 0.0048 0 0 0) *
+##      3) pitch_forearm>=-33.95 14451 11229 A (0.22 0.21 0.19 0.18 0.2)  
+##        6) accel_belt_z>=-187.5 13625 10407 A (0.24 0.22 0.2 0.19 0.15)  
+##         12) magnet_dumbbell_y< 439.5 11419  8262 A (0.28 0.18 0.23 0.18 0.13)  
+##           24) roll_forearm< 123.5 7167  4347 A (0.39 0.18 0.18 0.16 0.093)  
+##             48) magnet_dumbbell_z< -27.5 2366   808 A (0.66 0.2 0.012 0.078 0.048)  
+##               96) roll_forearm>=-136.5 1981   461 A (0.77 0.17 0.013 0.028 0.025) *
+##               97) roll_forearm< -136.5 385   234 B (0.099 0.39 0.0078 0.34 0.17) *
+##             49) magnet_dumbbell_z>=-27.5 4801  3539 A (0.26 0.16 0.26 0.2 0.11)  
+##               98) accel_dumbbell_y>=-40.5 4186  2929 A (0.3 0.18 0.18 0.23 0.11)  
+##                196) magnet_dumbbell_z< 49.5 1874   937 A (0.5 0.096 0.12 0.22 0.071)  
+##                  392) yaw_forearm>=-22.15 1518   581 A (0.62 0.084 0.12 0.13 0.055) *
+##                  393) yaw_forearm< -22.15 356   139 D (0 0.15 0.1 0.61 0.14) *
+##                197) magnet_dumbbell_z>=49.5 2312  1736 B (0.14 0.25 0.23 0.24 0.15)  
+##                  394) magnet_belt_z>=-453 2173  1597 B (0.15 0.27 0.24 0.19 0.16)  
+##                    788) accel_dumbbell_z< 25.5 1647  1130 C (0.18 0.25 0.31 0.19 0.069)  
+##                     1576) magnet_dumbbell_y< 271.5 918   444 C (0.13 0.22 0.52 0.11 0.026) *
+##                     1577) magnet_dumbbell_y>=271.5 729   520 B (0.25 0.29 0.059 0.28 0.12)  
+##                       3154) total_accel_dumbbell< 16.5 212    44 A (0.79 0.12 0.014 0.033 0.038) *
+##                       3155) total_accel_dumbbell>=16.5 517   318 D (0.027 0.35 0.077 0.38 0.16)  
+##                         6310) roll_arm>=0.845 142    22 B (0.042 0.85 0.11 0 0) *
+##                         6311) roll_arm< 0.845 375   176 D (0.021 0.17 0.064 0.53 0.22) *
+##                    789) accel_dumbbell_z>=25.5 526   293 E (0.03 0.32 0.0076 0.2 0.44)  
+##                     1578) roll_dumbbell< 38.61985 177    32 B (0.023 0.82 0.023 0.028 0.11) *
+##                     1579) roll_dumbbell>=38.61985 349   135 E (0.034 0.069 0 0.28 0.61) *
+##                  395) magnet_belt_z< -453 139     0 D (0 0 0 1 0) *
+##               99) accel_dumbbell_y< -40.5 615   120 C (0.0081 0.041 0.8 0.029 0.12) *
+##           25) roll_forearm>=123.5 4252  2861 C (0.079 0.18 0.33 0.22 0.19)  
+##             50) magnet_dumbbell_y< 290.5 2520  1323 C (0.094 0.14 0.47 0.14 0.15)  
+##              100) magnet_forearm_z< -251 197    39 A (0.8 0.071 0 0.051 0.076) *
+##              101) magnet_forearm_z>=-251 2323  1126 C (0.034 0.14 0.52 0.15 0.16) *
+##             51) magnet_dumbbell_y>=290.5 1732  1143 D (0.058 0.24 0.11 0.34 0.25)  
+##              102) accel_forearm_x>=-101.5 1108   724 E (0.051 0.3 0.16 0.14 0.35)  
+##                204) magnet_arm_y>=188.5 450   210 B (0.013 0.53 0.23 0.1 0.12) *
+##                205) magnet_arm_y< 188.5 658   328 E (0.078 0.14 0.11 0.17 0.5) *
+##              103) accel_forearm_x< -101.5 624   191 D (0.069 0.12 0.027 0.69 0.087) *
+##         13) magnet_dumbbell_y>=439.5 2206  1191 B (0.028 0.46 0.039 0.21 0.26)  
+##           26) total_accel_dumbbell>=5.5 1550   619 B (0.039 0.6 0.054 0.02 0.29)  
+##             52) magnet_dumbbell_z< 17.5 666   101 B (0.092 0.85 0 0.014 0.047) *
+##             53) magnet_dumbbell_z>=17.5 884   471 E (0 0.41 0.094 0.025 0.47)  
+##              106) yaw_dumbbell< -30.4869 616   259 B (0 0.58 0.13 0.036 0.25) *
+##              107) yaw_dumbbell>=-30.4869 268    10 E (0 0.034 0.0037 0 0.96) *
+##           27) total_accel_dumbbell< 5.5 656   221 D (0 0.13 0.003 0.66 0.21) *
+##        7) accel_belt_z< -187.5 826     5 E (0.0048 0.0012 0 0 0.99) *
+
+Model Validation
+confusionMatrix(prediction1, validation_cv$classe)
+## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction    A    B    C    D    E
+##          A 1003  143   62   66   56
+##          B   37  398   61   50   84
+##          C   48  113  520  125  110
+##          D    9   69   23  345   75
+##          E   19   36   18   57  396
+## 
+## Overall Statistics
+##                                           
+##                Accuracy : 0.6786          
+##                  95% CI : (0.6637, 0.6932)
+##     No Information Rate : 0.2845          
+##     P-Value [Acc > NIR] : < 2.2e-16       
+##                                           
+##                   Kappa : 0.5907          
+##  Mcnemar's Test P-Value : < 2.2e-16       
+## 
+## Statistics by Class:
+## 
+##                      Class: A Class: B Class: C Class: D Class: E
+## Sensitivity            0.8987   0.5244   0.7602  0.53655   0.5492
+## Specificity            0.8835   0.9267   0.8777  0.94634   0.9594
+## Pos Pred Value         0.7541   0.6317   0.5677  0.66219   0.7529
+## Neg Pred Value         0.9564   0.8904   0.9455  0.91240   0.9043
+## Prevalence             0.2845   0.1935   0.1744  0.16391   0.1838
+## Detection Rate         0.2557   0.1015   0.1326  0.08794   0.1009
+## Detection Prevalence   0.3390   0.1606   0.2335  0.13281   0.1341
+## Balanced Accuracy      0.8911   0.7255   0.8190  0.74144   0.7543
+
+predict model values
+resultfull <-predict(model,testing_raw)
+result <-predict(model,testing_raw,type ="class")
+resultfull
+##             A           B           C          D          E
+## 1  0.03400775 0.141627206 0.515281963 0.15066724 0.15841584
+## 2  0.76728925 0.166582534 0.013124685 0.02776376 0.02523978
+## 3  0.01333333 0.533333333 0.231111111 0.10222222 0.12000000
+## 4  0.13289760 0.215686275 0.516339869 0.10893246 0.02614379
+## 5  0.13289760 0.215686275 0.516339869 0.10893246 0.02614379
+## 6  0.03400775 0.141627206 0.515281963 0.15066724 0.15841584
+## 7  0.06891026 0.123397436 0.027243590 0.69391026 0.08653846
+## 8  0.02133333 0.168000000 0.064000000 0.53066667 0.21600000
+## 9  0.99519231 0.004807692 0.000000000 0.00000000 0.00000000
+## 10 0.76728925 0.166582534 0.013124685 0.02776376 0.02523978
+## 11 0.03400775 0.141627206 0.515281963 0.15066724 0.15841584
+## 12 0.01333333 0.533333333 0.231111111 0.10222222 0.12000000
+## 13 0.03400775 0.141627206 0.515281963 0.15066724 0.15841584
+## 14 0.99519231 0.004807692 0.000000000 0.00000000 0.00000000
+## 15 0.07750760 0.142857143 0.110942249 0.16717325 0.50151976
+## 16 0.03438395 0.068767908 0.000000000 0.28366762 0.61318052
+## 17 0.61725955 0.083662714 0.119235837 0.12516469 0.05467721
+## 18 0.09870130 0.392207792 0.007792208 0.33506494 0.16623377
+## 19 0.09870130 0.392207792 0.007792208 0.33506494 0.16623377
+## 20 0.01333333 0.533333333 0.231111111 0.10222222 0.12000000
+result
+##  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 
+##  C  A  B  C  C  C  D  D  A  A  C  B  C  A  E  E  A  B  B  B 
+## Levels: A B C D E
+ 
