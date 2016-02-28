@@ -1,0 +1,85 @@
+---
+title: "Practical Machine Learning Course Assignment Writeup"
+author: "Yiannis"
+date: "27 Φεβρουαρίου 2016"
+output: html_document
+---
+
+
+
+The training data for this project are available here: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+Import caret package and read the files and import them in your working directory:
+
+```{r,}
+library(caret)
+library(randomForest)
+library(e1071)
+url1 <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+download.file(url1, destfile="pmltraining.csv")
+url2 <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(url2, destfile="pmltesting.csv")
+training_raw <- read.csv("pmltraining.csv", header=TRUE)
+testing_raw <- read.csv("pmltesting.csv", header=TRUE)
+
+```
+
+I keep those variables which are related to sensors (e.g. belt, arm, dumbbell, forearm) and the classe variable as it holds the classification of the activity performed by the user.
+
+Also I discard the variables which have only null values.
+```{r}
+sensor_col <- grepl("belt|arm|dumbbell|forearm|classe",names(training_raw))
+training_set <- training_raw[,sensor_col]
+null_col <- colSums(is.na(training_set))!=0
+training_set <- training_set[,!null_col]
+```
+
+Split of the original training set into two subsets (train 80% and testing 20%) and then use the Random Forest Method to boost Accuracy of the Model
+
+
+```{r}
+
+set.seed(1234)
+training_cv_index <- createDataPartition(training_set$classe,list=FALSE ,p=0.8)
+training_cv <- training_set[training_cv_index,]
+validation_cv <- training_set[-training_cv_index,]
+
+```
+
+
+```{r}
+
+model <- train(classe ~., method="rf", data=training_cv, trControl=trainControl(method='cv'), number=5, allowParallel=TRUE )
+
+```
+
+see the results of the model
+
+```{r}
+
+model
+
+
+```
+
+Model Validation
+
+```{r}
+
+confusionMatrix(validation_cv$classe,predict(model,validation_cv))
+
+```
+
+
+predict model values
+
+```{r}
+
+result <-predict(model,testing_raw)
+result
+
+```
+
+
